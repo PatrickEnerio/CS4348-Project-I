@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+
+# Log files produced by running the program
+*.log
+log.txt
+
+# OS / editor
+.DS_Store
+.vscode/
