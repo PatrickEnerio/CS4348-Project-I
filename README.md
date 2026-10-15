@@ -12,6 +12,14 @@ pipes using the `subprocess` module.
 | `encryption.py` | Vigenère cipher backend. Accepts `PASS`, `ENCRYPT`, `DECRYPT`, and `QUIT` on standard input and replies with `RESULT ...` or `ERROR ...`. |
 | `devlog.md` | Development log. |
 
+## Status
+
+| Part | State |
+| --- | --- |
+| `logger.py` | Done. Parses `ACTION message` lines, timestamps them, skips blank lines, stops on `QUIT`. |
+| `encryption.py` | Stub. Vigenère cipher and command handling not written yet. |
+| `driver.py` | Partial. Starts and stops both child processes; the menu commands, logging calls, and input validation are still stubs. |
+
 ## Requirements
 
 Python 3.6 or newer. Uses only the standard library.
@@ -40,3 +48,13 @@ Input must contain letters only and is case insensitive.
 printf 'START Logging Started.\nQUIT\n' | python3 logger.py log.txt
 printf 'PASS HELLO\nENCRYPT HELLO\nQUIT\n' | python3 encryption.py
 ```
+
+The logger command above appends a line like this to `log.txt`:
+
+```
+2026-10-15 14:05 [START] Logging Started.
+```
+
+The logger uppercases the action, so `start` and `START` produce the same
+entry. Blank lines are skipped, and anything sent after `QUIT` is ignored. A
+line with an action and no message is logged as just `YYYY-MM-DD HH:MM [ACTION]`.
