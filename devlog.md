@@ -52,3 +52,19 @@ The driver logs "CMD password" and then the response, and PASS replies with a ba
 To test it, I piped "foo", a blank line, "history", and "quit" into the driver and read the log file. It had START, CMD foo, the unknown command error, CMD history, CMD quit, and EXIT, with nothing for the blank line. I also ran it with input that ends without typing quit, to act like Ctrl-D, and EXIT was still logged and both child processes exited.
 
 Next session I plan to implement the password, encrypt, decrypt, and history commands, including the history menu and checking that input contains only letters.
+
+# 10-18-2026 4:26pm
+
+This session I implemented the rest of the driver: the password, encrypt, decrypt, and history commands, the history menu, and input validation.
+
+All three of password, encrypt, and decrypt start the same way, by asking "Use history? (y/n)". If the answer is yes, the driver prints the history as a numbered list with an extra option "0. Enter a new string instead", which is the way out of the history that the spec asks for. Picking 0, or picking yes when the history is empty, falls through to typing a new string. Anything that is not y or n, or not a number in range, gets an error and the question is asked again, rather than crashing on int(). The function that does this returns the string along with whether it was new, because the spec only wants new strings recorded in the history.
+
+For validation I used str.isalpha(), which is False for an empty string and for anything with spaces, digits, or punctuation, so "Hello World!" is rejected and the user is asked again. Valid input is converted to uppercase before it is sent, which is what makes the input case-insensitive, and it also means the encryption program only ever sees uppercase like the spec allows it to assume.
+
+Encrypt and decrypt only differ in the command they send, so they share one run_cipher() function. A new input string is added to the history before it is sent, and the result is added after, but only if the reply is RESULT. An error like "Password not set" is not a result, so it is printed and logged but not saved. The password is never added to the history. I only log the reply from the encryption program, and PASS replies with a bare RESULT, so the password never ends up in the log, even when it was picked from the history.
+
+I also caught a problem with ending input. The main menu already treated Ctrl-D as quit, but if input ended while the driver was inside a prompt like "Enter string to encrypt:", input() would raise EOFError and the driver would crash without sending QUIT to the children. Now the main loop catches that and quits cleanly.
+
+To test it, I piped a whole session into the driver: history while empty, encrypt before a password was set, a password of "Hello World!" (rejected), then "hello", encrypting HELLO from the history to get OIWWC, decrypting OIWWC from the history after two invalid choices to get HELLO back, using 0 to enter a new string, setting the password from the history, showing the history, and finally ending the input in the middle of an encrypt prompt. Everything printed what I expected, the log had START, every CMD, every RESULT and ERROR, and EXIT, with no password anywhere in it, and no child processes were left running afterwards.
+
+Next session I plan to do a final end-to-end run, clean up the README, and remove any leftover TODOs.
