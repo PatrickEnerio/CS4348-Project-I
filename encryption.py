@@ -32,38 +32,52 @@ def respond(kind, message=""):
     sys.stdout.flush()
 
 
+def shift(text, key, direction):
+    """Shift each letter of text by the matching key letter.
+
+    Letter i uses key letter i % len(key) (A=0, B=1, ..., Z=25), so the key
+    repeats when the text is longer. direction is +1 to encrypt, -1 to decrypt.
+    The % 26 wraps past Z back to A (or past A back to Z).
+    """
+    result = []
+    for i, c in enumerate(text):
+        k = ord(key[i % len(key)]) - ord("A")
+        result.append(chr((ord(c) - ord("A") + direction * k) % 26 + ord("A")))
+    return "".join(result)
+
+
 def vigenere_encrypt(text, key):
     """Encrypt uppercase text with a Vigenere cipher using key."""
-    # TODO: For each letter i in text, shift it forward by the key letter at
-    #       position i % len(key) (A=0, B=1, ..., Z=25), wrapping around Z.
-    #       Check: key "HELLO", text "HELLO" -> "OIWWC"
-    return text
+    return shift(text, key, 1)
 
 
 def vigenere_decrypt(text, key):
     """Decrypt uppercase text with a Vigenere cipher using key."""
-    # TODO: Same as encrypt, but shift backward instead of forward.
-    #       Check: key "HELLO", text "OIWWC" -> "HELLO"
-    return text
+    return shift(text, key, -1)
 
 
 def handle_pass(arg):
     global passkey
-    # TODO: Store arg as the passkey and respond with a bare "RESULT".
-    #       Consider what to do if arg is empty.
-    respond("ERROR", "Not implemented")
+    # An empty key would make i % len(key) divide by zero, so reject it.
+    if not arg:
+        respond("ERROR", "Password is empty")
+        return
+    passkey = arg
+    respond("RESULT")
 
 
 def handle_encrypt(arg):
-    # TODO: If no passkey is set -> respond("ERROR", "Password not set").
-    #       Otherwise respond("RESULT", vigenere_encrypt(arg, passkey)).
-    respond("ERROR", "Not implemented")
+    if passkey is None:
+        respond("ERROR", "Password not set")
+    else:
+        respond("RESULT", vigenere_encrypt(arg, passkey))
 
 
 def handle_decrypt(arg):
-    # TODO: If no passkey is set -> respond("ERROR", "Password not set").
-    #       Otherwise respond("RESULT", vigenere_decrypt(arg, passkey)).
-    respond("ERROR", "Not implemented")
+    if passkey is None:
+        respond("ERROR", "Password not set")
+    else:
+        respond("RESULT", vigenere_decrypt(arg, passkey))
 
 
 COMMANDS = {
@@ -75,7 +89,8 @@ COMMANDS = {
 
 def main():
     for line in sys.stdin:
-        line = line.rstrip("\n")
+        # Strip "\r" too, so Windows line endings don't end up in the argument.
+        line = line.rstrip("\r\n")
 
         # First word is the command; the rest of the line (after the first
         # space) is the argument.
@@ -88,7 +103,8 @@ def main():
 
         handler = COMMANDS.get(command)
         if handler is None:
-            # TODO: Decide on the error message for unknown commands.
+            # Always reply, even to a blank line. The driver waits on
+            # readline() after every command, so no reply would hang it.
             respond("ERROR", f"Unknown command {command}")
         else:
             handler(arg)
