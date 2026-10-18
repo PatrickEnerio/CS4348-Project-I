@@ -47,6 +47,16 @@ def send_encryptor(command, arg=""):
     return encryptor.stdout.readline().rstrip("\n")
 
 
+def log_response(response):
+    """Log a response from the encryption program, e.g. "RESULT OIWWC".
+
+    The first word (RESULT or ERROR) becomes the log action and the rest
+    becomes the message, so the logger records it the same way it was sent.
+    """
+    parts = response.split(" ", 1)
+    send_log(parts[0], parts[1] if len(parts) > 1 else "")
+
+
 # ---------------------------------------------------------------- helpers
 
 def print_menu():
@@ -124,7 +134,8 @@ def cmd_history():
 
 def cmd_quit():
     """Tell both child processes to quit and wait for them to exit."""
-    # TODO: Log the driver exit before telling the logger to quit.
+    # Log the exit first: once the logger gets QUIT it stops reading.
+    send_log("EXIT", "Driver exiting.")
     encryptor.stdin.write("QUIT\n")
     encryptor.stdin.flush()
     logger.stdin.write("QUIT\n")
@@ -152,7 +163,7 @@ def main():
     logger = start_process("logger.py", [log_path])
     encryptor = start_process("encryption.py")
 
-    # TODO: Log the start of the driver, e.g. send_log("START", "Driver started.")
+    send_log("START", "Driver started.")
 
     while True:
         print_menu()
@@ -162,7 +173,11 @@ def main():
             # Treat end of input (Ctrl-D) as quit so the children are cleaned up.
             command = "quit"
 
-        # TODO: Log each command entered by the user.
+        # Ignore an empty line instead of logging it as a command.
+        if not command:
+            continue
+
+        send_log("CMD", command)
 
         if command == "quit":
             cmd_quit()
@@ -171,6 +186,7 @@ def main():
         handler = COMMANDS.get(command)
         if handler is None:
             print(f"Unknown command: {command}")
+            send_log("ERROR", f"Unknown command {command}")
         else:
             handler()
 

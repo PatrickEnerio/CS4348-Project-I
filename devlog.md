@@ -29,16 +29,26 @@ Next session I plan to write the Vigenère cipher and the command loop in encryp
 
 # 10-15-2026 4:36pm
 
-This session I wrote the Vigenère cipher and the command handlers in encryption.py. A Vigenère cipher shifts each letter of the text by an amount that comes from the key, with A=0, B=1, up to Z=25.
-Letter i of the text uses key letter i % len(key), so the key repeats if the text is longer than it. Adding the shift and taking % 26 makes it wrap around from Z back to A. Decrypting is the same thing in the other direction, so I wrote one shift() helper that takes a direction of +1 or -1, and encrypt and decrypt each just call it. Because Python's % always gives a non-negative result, shifting backwards past A wraps to Z without any extra checks.
+This session I wrote the Vigenère cipher and the command handlers in encryption.py. A Vigenère cipher shifts each letter of the text by an amount that comes from the key, with A=0, B=1, up to Z=25. Letter i of the text uses key letter i % len(key), so the key repeats if the text is longer than it. Adding the shift and taking % 26 makes it wrap around from Z back to A. Decrypting is the same thing in the other direction, so I wrote one shift() helper that takes a direction of +1 or -1, and encrypt and decrypt each just call it. Because Python's % always gives a non-negative result, shifting backwards past A wraps to Z without any extra checks.
 
-PASS stores the key and replies with a bare RESULT, and ENCRYPT and DECRYPT reply "ERROR Password not set" until a key exists, matching the example in the spec. I decided to reject an empty PASS with an error. With an empty key, len(key) is 0, so i % len(key) would raise a divide-by-zero error and crash the program, which would also break the driver's pipe.
-When this happens the old key stays set.
+PASS stores the key and replies with a bare RESULT, and ENCRYPT and DECRYPT reply "ERROR Password not set" until a key exists, matching the example in the spec. I decided to reject an empty PASS with an error. With an empty key, len(key) is 0, so i % len(key) would raise a divide-by-zero error and crash the program, which would also break the driver's pipe. When this happens the old key stays set.
 
-I also made sure the program replies to every line, even a blank or unknown one, with "ERROR Unknown command". The driver blocks on readline() after every command it sends, so if the encryption program skipped a line, the driver would wait forever. This is different from the logger, which can safely skip blank lines because the driver never waits on it.
-Like the logger, I strip "\r\n" so Windows line endings do not end up in the argument.
+I also made sure the program replies to every line, even a blank or unknown one, with "ERROR Unknown command". The driver blocks on readline() after every command it sends, so if the encryption program skipped a line, the driver would wait forever. This is different from the logger, which can safely skip blank lines because the driver never waits on it.Like the logger, I strip "\r\n" so Windows line endings do not end up in the argument.
 
 To test it, I piped commands straight into encryption.py with printf.
 The spec's example gave ERROR Password not set, RESULT, and RESULT OIWWC, and decrypting OIWWC gave back HELLO. To check that the key repeats, I used the key KEY on ATTACKATDAWN and got KXRKGIKXBKAL, which I checked by hand, and decrypting it gave back the original. An empty PASS gave an error and the previous key kept working, unknown and blank lines got an ERROR reply, and nothing after QUIT was processed.
 
 Next session I plan to wire logging into the driver: the start and exit of the driver, each command, and the result of each command.
+
+# 10-18-2026 3:10pm
+
+This session I wired logging into the driver. The spec says the start and exit of the driver should be logged, along with each command and its result. The driver now sends "START Driver started." right after it launches the two child processes, and "CMD <command>" for every command the user types. If the command is not one of the menu options, the driver prints an error and also logs "ERROR Unknown command <command>". I decided to skip empty input instead of logging it, since pressing enter by accident is not really a command and would just clutter the log.
+
+The order matters when quitting. The driver logs "EXIT Driver exiting." before it sends QUIT to the logger, because once the logger reads QUIT it stops reading and closes the file. Anything sent after that would be lost. Since the main loop already treats end of input (Ctrl-D) as quit, the EXIT line gets logged in that case too.
+
+I also added a log_response() helper for logging the replies from the encryption program. A reply like "RESULT OIWWC" or "ERROR Password not set" already has the form "ACTION message", so the helper splits off the first word as the action and passes the rest along as the message. Nothing calls it yet, because the password, encrypt, and decrypt commands are still stubs, but they will all use it. This also takes care of keeping passwords out of the log.
+The driver logs "CMD password" and then the response, and PASS replies with a bare RESULT, so the password itself never gets sent to the logger.
+
+To test it, I piped "foo", a blank line, "history", and "quit" into the driver and read the log file. It had START, CMD foo, the unknown command error, CMD history, CMD quit, and EXIT, with nothing for the blank line. I also ran it with input that ends without typing quit, to act like Ctrl-D, and EXIT was still logged and both child processes exited.
+
+Next session I plan to implement the password, encrypt, decrypt, and history commands, including the history menu and checking that input contains only letters.
